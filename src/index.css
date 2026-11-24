@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-cream: #fbf5ec;
+  --color-paper: #fffdf8;
+  --color-sand: #f1e7d9;
+  --color-line: #eadfcf;
+  --color-line-strong: #d9c9b5;
+  --color-ink: #2b1d16;
+  --color-ink-soft: #4a3b31;
+  --color-muted: #6b5a4e;
+  --color-pine: #1e5e3a;
+  --color-pine-dark: #14432a;
+  --color-pine-soft: #e4f0e7;
+  --color-pine-chip: #cfe3d5;
+  --color-berry: #b3202a;
+  --color-berry-dark: #8a1820;
+  --color-berry-soft: #f8e3e1;
+  --color-berry-chip: #f0ccc8;
+  --color-gold: #c9a24b;
+  --color-amber-soft: #fff6de;
+  --color-amber-line: #ebd39a;
+  --color-amber-ink: #5c430c;
+
+  --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Playfair Display', ui-serif, Georgia, serif;
+}
+
+html {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-pine) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.tag-left {
+  clip-path: polygon(16px 0, 100% 0, 100% 100%, 16px 100%, 0 50%);
+}
+.tag-right {
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.animate-pop-in {
+  animation: pop-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in { animation: none; }
+}
