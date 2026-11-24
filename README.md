@@ -37,7 +37,7 @@ npm run dev
 ```
 
 - E-mails de login local aparecem no Inbucket/Mailpit: <http://127.0.0.1:54324>
-- Admin inicial: `padilha.matheus@hotmail.com` (tabela `admins`)
+- Admin: e-mails na tabela `admins` (veja "Para adicionar outro organizador" abaixo)
 - Testes do banco (sorteio, permissões, entrar com e-mail): `npm run test:db`
 
 ## Produção
