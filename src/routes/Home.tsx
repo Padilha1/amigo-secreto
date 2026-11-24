@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { DateTags, GiftIcon, Snowflake, Spinner } from '../components/ui'
-import { isRegistrationOpen, money, shortDate, shortTime } from '../lib/format'
+import { GiftIcon, Snowflake, Spinner } from '../components/ui'
+import { isRegistrationOpen, money, shortDate } from '../lib/format'
 import { groupsQuery } from '../lib/queries'
 import type { Group } from '../lib/types'
 
@@ -25,13 +25,8 @@ export function Home() {
       <div className="flex flex-col items-center gap-1.5 text-center">
         <p className="m-0 text-[13px] font-extrabold uppercase tracking-[0.16em] text-pine">Natal {new Date().getFullYear()}</p>
         <h1 className="m-0 font-display text-[46px] font-extrabold leading-none text-berry">Amigo Secreto</h1>
+        <p className="m-0 mt-1 font-display text-[30px] font-extrabold leading-none tracking-[0.04em] text-pine">ACIPG</p>
       </div>
-
-      {featured && (
-        <div className="flex justify-center">
-          <DateTags date={shortDate(featured.event_date)} time={shortTime(featured.event_time)} />
-        </div>
-      )}
 
       <div className="flex flex-col gap-3.5">
         <h2 className="m-0 text-base font-extrabold">Escolha seu grupo</h2>
