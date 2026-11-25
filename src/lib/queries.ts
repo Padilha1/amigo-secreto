@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from './supabase'
-import type { Group, MyEntry, Participant } from './types'
+import type { DrawStatus, Group, MyEntry, Participant } from './types'
 
 export const groupsQuery = queryOptions({
   queryKey: ['groups'],
@@ -29,6 +29,20 @@ export const myEntryQuery = (token: string) =>
       if (error) throw error
       return data as MyEntry | null
     },
+    // enquanto o sorteio não sai, confere de minuto em minuto (quem deixou a página aberta vê na hora)
+    refetchInterval: (q) => (q.state.data && !q.state.data.group.drawn_at ? 60_000 : false),
+  })
+
+/** Libera o sorteio automático quando o prazo acaba. */
+export const drawStatusQuery = (slug: string, enabled: boolean) =>
+  queryOptions({
+    queryKey: ['draw-status', slug],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('open_draw', { p_group_slug: slug })
+      if (error) throw error
+      return data as DrawStatus
+    },
   })
 
 export const participantsQuery = (groupId: string) =>
@@ -37,7 +51,7 @@ export const participantsQuery = (groupId: string) =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from('participants')
-        .select('id, group_id, name, email, wishes, dislikes, present, created_at')
+        .select('id, group_id, name, email, wishes, dislikes, revealed_at, created_at')
         .eq('group_id', groupId)
         .order('name')
       if (error) throw error

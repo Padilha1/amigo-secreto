@@ -17,13 +17,34 @@ Não há servidor Node próprio: as regras ficam no banco (funções SQL + RLS).
 
 ## Como funciona o sorteio
 
-`perform_draw` (SQL) embaralha **só os participantes marcados como presentes** e forma um ciclo único
-A→B→C→…→A. Isso garante que ninguém tira a si mesmo e que cada pessoa é tirada exatamente uma vez
-(além de `check` e `unique` no banco). Os pares ficam numa tabela que nem o admin consegue ler pela API;
-cada pessoa vê o seu digitando o e-mail da inscrição na página do grupo.
+- As inscrições vão até o fim do dia do prazo (**23h59, horário de Brasília**).
+- A partir das **00h do dia seguinte**, o primeiro acesso de qualquer inscrito faz o sorteio do grupo todo de uma vez.
+  Quem estiver com a página aberta vê a tela mudar sozinha. Quem não estiver entra com o e-mail da inscrição, que precisa ser igual ao cadastrado.
+- O sorteio forma um ciclo único (A→B→C→…→A) com **todos os inscritos**. Assim ninguém tira a si mesmo, ninguém é tirado duas vezes
+  e ninguém fica sobrando, mesmo que cada pessoa clique em "Sortear" em horários diferentes.
+  O botão "Sortear meu amigo secreto" só revela o nome que já estava reservado.
+- Os pares ficam numa tabela que nem o admin consegue ler pela API.
 
 > **Atenção:** entrar com o e-mail não verifica se a pessoa é dona dele. Quem souber o e-mail de alguém
 > consegue ver quem essa pessoa tirou. Foi uma escolha consciente para manter simples.
+
+## O que pode dar errado (e o que acontece)
+
+Sempre que algo foge da regra, a pessoa vê os **contatos da organização** (editáveis no admin, em "Datas, local e contatos").
+
+| Situação | O que o sistema faz | O que a organização faz |
+|---|---|---|
+| Sobrar alguém sem amigo / alguém tirar a si mesmo | Não acontece: o sorteio é feito de uma vez, em ciclo único | — |
+| Várias pessoas abrindo à meia-noite ao mesmo tempo | O banco trava o grupo e sorteia uma vez só | — |
+| E-mail digitado não bate | Mostra "não encontramos" + contatos | Confere o e-mail no admin e passa para a pessoa |
+| Pessoa se inscreveu com e-mail errado | Igual acima | Remove e inclui de novo com o e-mail certo (ou só informa o e-mail cadastrado) |
+| Perdeu o prazo de inscrição | Inscrição fechada; mostra contatos | Admin › **Incluir pessoa**: entra no meio de um par (A→nova→B). Só A muda de amigo e vê um aviso |
+| Alguém desiste depois do sorteio | — | Admin › **Remover**: quem tirava essa pessoa passa a tirar quem ela tinha tirado. Só uma pessoa muda e vê o aviso "Seu amigo secreto mudou" |
+| Menos de 3 inscritos no fim do prazo | Não sorteia; mostra "não pôde ser feito" + contatos | Inclui mais gente e usa **Sortear agora**, ou estende o prazo |
+| Remover deixaria menos de 3 pessoas | Bloqueia (senão o segredo acaba) | **Desfazer e reabrir inscrições** |
+| Algo deu muito errado | — | **Refazer sorteio** (todos podem tirar outra pessoa, inclusive quem já viu) |
+| Quer adiar o sorteio | — | Muda "Inscrições até" para a nova data. Se já sorteou, **Desfazer e reabrir** depois de mudar a data |
+| Alguém não viu o resultado | — | O admin mostra "Já sorteou" / "Ainda não viu" por pessoa (sem revelar os pares) |
 
 ## Rodar localmente
 
@@ -45,7 +66,29 @@ npm run dev
 ### 1. Supabase
 1. Crie o projeto em <https://supabase.com>.
 2. `npx supabase login` e `npx supabase link --project-ref SEU_REF`
-3. `npm run db:push` (aplica a migration com os dois grupos e o admin)
+3. `npm run db:push` (aplica as migrations). Sem a CLI: cole cada arquivo de `supabase/migrations/` no SQL Editor, em ordem.
+4. Authentication › URL Configuration: **Site URL** = URL do Netlify; adicione `https://SEU-SITE.netlify.app/admin` em Redirect URLs.
+
+### 2. Netlify
+Importe o repositório. Build e redirects já estão no `netlify.toml`. Em Site settings › Environment variables:
+`VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+
+## Operação
+
+1. No `/admin`, aba do grupo: confira datas, local, prazo e contatos.
+2. Divulgue o link (ou o QR code em `qrcode/`).
+3. No dia seguinte ao prazo, o sorteio sai sozinho. Acompanhe no admin quem já sorteou.
+4. Exceções: veja a tabela acima.
+
+Para adicionar outro organizador" abaixo)
+- Testes do banco (sorteio, permissões, entrar com e-mail): `npm run test:db`
+
+## Produção
+
+### 1. Supabase
+1. Crie o projeto em <https://supabase.com>.
+2. `npx supabase login` e `npx supabase link --project-ref SEU_REF`
+3. `npm run db:push` (aplica as migrations). Sem a CLI: cole cada arquivo de `supabase/migrations/` no SQL Editor, em ordem.
 4. Authentication › URL Configuration: **Site URL** = URL do Netlify; adicione `https://SEU-SITE.netlify.app/admin` em Redirect URLs.
 
 ### 2. Netlify

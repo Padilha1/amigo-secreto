@@ -9,6 +9,7 @@ export type Group = {
   gift_limit: number | null
   registration_open: boolean
   drawn_at: string | null
+  contacts: string[]
   sort_order: number
 }
 
@@ -19,7 +20,7 @@ export type Participant = {
   email: string
   wishes: string[]
   dislikes: string[]
-  present: boolean
+  revealed_at: string | null
   created_at: string
 }
 
@@ -28,6 +29,11 @@ export type MyEntry = {
   email: string
   wishes: string[]
   dislikes: string[]
-  group: Pick<Group, 'slug' | 'name' | 'event_date' | 'event_time' | 'location' | 'gift_limit' | 'drawn_at'>
-  receiver: { name: string; wishes: string[]; dislikes: string[] } | null
+  revealed_at: string | null
+  draw_status: DrawStatus
+  group: Pick<Group, 'slug' | 'name' | 'event_date' | 'event_time' | 'location' | 'gift_limit' | 'drawn_at' | 'registration_deadline' | 'contacts'>
+  receiver: { name: string; wishes: string[]; dislikes: string[]; changed: boolean } | null
 }
+
+/** drawn: sorteio feito · waiting: ainda no prazo · not_enough: prazo acabou com menos de 3 inscritos */
+export type DrawStatus = 'drawn' | 'waiting' | 'not_enough'

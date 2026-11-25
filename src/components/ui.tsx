@@ -246,3 +246,21 @@ export function FullPageMessage({ title, children }: { title: string; children?:
     </div>
   )
 }
+
+/** "Fale com a organização" — aparece sempre que algo foge da regra. */
+export function ContactBox({ contacts, children }: { contacts: string[]; children?: ReactNode }) {
+  if (!contacts.length) return children ? <InfoBox>{children}</InfoBox> : null
+  return (
+    <div className="flex flex-col gap-2.5 rounded-[14px] border border-amber-line bg-amber-soft px-4 py-3.5 text-sm leading-relaxed text-amber-ink">
+      {children && <p className="m-0">{children}</p>}
+      <p className="m-0 font-bold">Fale com o pessoal da organização:</p>
+      <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+        {contacts.map((c) => (
+          <li key={c} className="rounded-full border border-amber-line bg-paper px-3 py-1 font-extrabold text-ink">
+            {c}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}

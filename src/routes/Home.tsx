@@ -1,14 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { GiftIcon, Snowflake, Spinner } from '../components/ui'
-import { isRegistrationOpen, money, shortDate } from '../lib/format'
+import { drawDay, isDrawDue, isRegistrationOpen, money, shortDate } from '../lib/format'
 import { groupsQuery } from '../lib/queries'
 import type { Group } from '../lib/types'
 
 function statusOf(g: Group) {
-  if (g.drawn_at) return { label: 'Sorteado', hint: 'Entre com seu e-mail para ver quem tirou', open: true }
+  if (g.drawn_at || isDrawDue(g)) return { label: 'Sorteio liberado', hint: 'Entre com seu e-mail e sorteie', open: true }
   if (isRegistrationOpen(g))
-    return { label: 'Aberto', hint: g.registration_deadline ? `Inscrições até ${shortDate(g.registration_deadline)}` : 'Inscrições abertas', open: true }
+    return { label: 'Aberto', hint: g.registration_deadline
+        ? `Inscrições até ${shortDate(g.registration_deadline)} · sorteio em ${drawDay(g.registration_deadline)}`
+        : 'Inscrições abertas', open: true }
   if (!g.event_date) return { label: 'Em breve', hint: 'Aguardando confirmação', open: false }
   return { label: 'Encerrado', hint: 'Inscrições encerradas', open: false }
 }
@@ -82,7 +84,7 @@ export function Home() {
           )}
           <li className="flex items-center gap-2.5">
             <span className="size-2 shrink-0 rounded-full bg-berry" />
-            Sorteio on-line na reunião
+            Sorteio on-line, sem repetir ninguém
           </li>
           <li className="flex items-center gap-2.5">
             <span className="size-2 shrink-0 rounded-full bg-berry" />

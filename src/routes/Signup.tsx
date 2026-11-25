@@ -1,7 +1,8 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
+  ContactBox,
   DateTags,
   ErrorBox,
   Field,
@@ -14,22 +15,25 @@ import {
   TagInput,
   inputClass,
 } from '../components/ui'
-import { isRegistrationOpen, money, shortDate, shortTime } from '../lib/format'
-import { groupQuery, rememberToken, rememberedToken } from '../lib/queries'
+import { drawDay, isDrawDue, isRegistrationOpen, money, msUntilDrawOpens, shortDate, shortTime } from '../lib/format'
+import { drawStatusQuery, groupQuery, rememberToken, rememberedToken } from '../lib/queries'
 import { errorMessage, supabase } from '../lib/supabase'
 import type { Group } from '../lib/types'
 
 export function Rules({ group }: { group: Group }) {
   const date = shortDate(group.event_date)
   const time = shortTime(group.event_time)
+  const deadline = shortDate(group.registration_deadline)
   const items = [
-    date && `Para participar, precisa estar presente na reunião do dia ${date}${time ? ` às ${time}` : ''}`,
-    group.location && `Local: ${group.location}`,
-    'O sorteio é feito on-line; para ver quem tirou, entre aqui com seu e-mail',
+    deadline && `Inscrições até ${deadline} às 23h59`,
+    deadline
+      ? `A partir de ${drawDay(group.registration_deadline)} (00h), entre aqui com seu e-mail e sorteie seu amigo secreto`
+      : 'O sorteio é on-line: entre aqui com seu e-mail para ver quem tirou',
+    'Ninguém tira a si mesmo e ninguém é tirado duas vezes',
+    date && `Troca de presentes na reunião de ${date}${time ? ` às ${time}` : ''}${group.location ? ` · ${group.location}` : ''}`,
     'Cada um pode inserir sugestões de presentes que gostaria de ganhar',
     group.gift_limit != null && `Valor do presente: até ${money(group.gift_limit)}`,
     'Busque produtos/serviços dos conselheiros',
-    group.registration_deadline && `Inscrições até ${shortDate(group.registration_deadline)}`,
   ].filter(Boolean) as string[]
 
   return (
@@ -63,8 +67,29 @@ export function Signup() {
       </FullPageMessage>
     )
 
+  return <SignupPage group={group} />
+}
+
+function SignupPage({ group }: { group: Group }) {
+  const qc = useQueryClient()
   const open = isRegistrationOpen(group)
+  const due = isDrawDue(group)
   const existing = rememberedToken(group.slug)
+  const { data: drawStatus } = useQuery(drawStatusQuery(group.slug, due))
+
+  // sorteio liberado: recarrega o grupo para mostrar a tela de sortear
+  useEffect(() => {
+    if (drawStatus === 'drawn' && !group.drawn_at) qc.invalidateQueries({ queryKey: ['groups'] })
+  }, [drawStatus, group.drawn_at, qc])
+
+  // quem deixou a página aberta: vira para "sortear" à meia-noite em ponto
+  useEffect(() => {
+    if (!open) return
+    const ms = msUntilDrawOpens(group.registration_deadline)
+    if (ms == null || ms > 2 ** 31 - 1) return
+    const t = setTimeout(() => qc.invalidateQueries({ queryKey: ['groups'] }), Math.max(ms, 0) + 1500)
+    return () => clearTimeout(t)
+  }, [open, group.registration_deadline, qc])
 
   return (
     <div className="relative min-h-dvh overflow-hidden">
@@ -96,7 +121,18 @@ export function Signup() {
 
         <div className="flex min-w-0 flex-col gap-6 lg:flex-1">
           {group.drawn_at ? (
-            <EmailLogin group={group} existing={existing} title="O sorteio foi feito!" text="Entre com o e-mail que você usou na inscrição para ver quem tirou." primary />
+            <EmailLogin group={group} existing={existing} title="Sorteio liberado!" text="Entre com o e-mail que você usou na inscrição e sorteie seu amigo secreto." primary />
+          ) : due && drawStatus !== 'not_enough' ? (
+            <div className="flex items-center justify-center gap-3 rounded-3xl border border-line bg-paper p-8 text-pine">
+              <Spinner className="size-6" />
+              <span className="font-bold">Liberando o sorteio…</span>
+            </div>
+          ) : due ? (
+            <div className="flex flex-col gap-4 rounded-3xl border border-berry/40 bg-paper p-6 lg:p-8">
+              <h2 className="m-0 font-display text-2xl text-berry">O sorteio não pôde ser feito</h2>
+              <p className="m-0 text-muted">É preciso ter pelo menos 3 pessoas inscritas para sortear sem que ninguém tire a si mesmo.</p>
+              <ContactBox contacts={group.contacts} />
+            </div>
           ) : open && !existing ? (
             <>
               <SignupForm group={group} />
@@ -109,8 +145,9 @@ export function Signup() {
               <div className="flex flex-col gap-3 rounded-3xl border border-line bg-paper p-6 lg:p-8">
                 <h2 className="m-0 font-display text-2xl">Inscrições fechadas</h2>
                 <p className="m-0 text-muted">
-                  {group.event_date ? 'O prazo de inscrição terminou.' : 'As inscrições deste grupo ainda não abriram. Volte em breve!'}
+                  {group.event_date ? 'As inscrições deste grupo estão fechadas no momento.' : 'As inscrições deste grupo ainda não abriram. Volte em breve!'}
                 </p>
+                {group.event_date && <ContactBox contacts={group.contacts} />}
               </div>
               {group.event_date && (
                 <EmailLogin group={group} existing={existing} title="Já se inscreveu?" text="Entre com seu e-mail para ver suas sugestões." />
@@ -175,7 +212,7 @@ function EmailLogin({
           params={{ token: existing }}
           className="flex h-14 items-center justify-center rounded-2xl bg-pine text-base font-extrabold text-white no-underline"
         >
-          {group.drawn_at ? 'Ver quem eu tirei' : 'Ver minha inscrição'}
+          {group.drawn_at ? 'Sortear meu amigo secreto' : 'Ver minha inscrição'}
         </Link>
       )}
       <div className="flex gap-2">
@@ -201,7 +238,14 @@ function EmailLogin({
           Entrar
         </button>
       </div>
-      {find.error && <ErrorBox>{errorMessage(find.error)}</ErrorBox>}
+      {find.error &&
+        (find.error.message.startsWith('Não encontramos') ? (
+          <ContactBox contacts={group.contacts}>
+            {find.error.message} Confira se digitou o mesmo e-mail da inscrição. Se não lembra qual usou, ou não conseguiu se inscrever a tempo:
+          </ContactBox>
+        ) : (
+          <ErrorBox>{errorMessage(find.error)}</ErrorBox>
+        ))}
     </form>
   )
 }
@@ -212,7 +256,6 @@ function SignupForm({ group }: { group: Group }) {
   const [email, setEmail] = useState('')
   const [wishes, setWishes] = useState<string[]>([])
   const [dislikes, setDislikes] = useState<string[]>([])
-  const [confirm, setConfirm] = useState(false)
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -300,35 +343,28 @@ function SignupForm({ group }: { group: Group }) {
         placeholder="Ex.: bebida alcoólica, roupa…"
       />
 
-      {group.gift_limit != null && (
-        <InfoBox>
-          Presente de até <strong>{money(group.gift_limit)}</strong>.
-          {date && (
-            <>
-              {' '}Para participar, é preciso estar na reunião de{' '}
-              <strong>
-                {date}
-                {time && ` às ${time}`}
-              </strong>
-              {group.location && <> ({group.location})</>}.
-            </>
-          )}
-        </InfoBox>
-      )}
-
-      {date && (
-        <label className="flex items-start gap-3 text-sm leading-relaxed text-ink-soft">
-          <input
-            type="checkbox"
-            required
-            checked={confirm}
-            onChange={(e) => setConfirm(e.target.checked)}
-            className="mt-0.5 size-5 shrink-0 accent-pine"
-          />
-          Confirmo que estarei na reunião de {date}
-          {time && ` às ${time}`}.
-        </label>
-      )}
+      <InfoBox>
+        {group.gift_limit != null && (
+          <>
+            Presente de até <strong>{money(group.gift_limit)}</strong>.{' '}
+          </>
+        )}
+        {group.registration_deadline && (
+          <>
+            O sorteio libera em <strong>{drawDay(group.registration_deadline)}</strong>: é só voltar aqui e entrar com seu e-mail.{' '}
+          </>
+        )}
+        {date && (
+          <>
+            A troca é na reunião de{' '}
+            <strong>
+              {date}
+              {time && ` às ${time}`}
+            </strong>
+            {group.location && <> ({group.location})</>}.
+          </>
+        )}
+      </InfoBox>
 
       {mutation.error && <ErrorBox>{errorMessage(mutation.error)}</ErrorBox>}
 
